@@ -1,7 +1,7 @@
 {
-    "name": "ongaku",
+    "name": "untenshu-bot",
     "version": "1.0.0",
-    "description": "bot for the ongaku server",
+    "description": "bot for the untenshu server for japanese language learning",
     "main": "index.js",
     "scripts": {
         "start": "node index.js",

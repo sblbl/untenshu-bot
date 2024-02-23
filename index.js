@@ -1,7 +1,6 @@
 require('dotenv').config()
 const Discord = require('discord.js')
 const { Collection,  Events } = require('discord.js')
-const { pokemon } = require('./utils')
 const cors = require('cors')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -46,6 +45,8 @@ for (const folder of commandFolders) {
 
 client.login(process.env.DISCORD_TOKEN)
 
+const devChannel = process.env.DEV_CHANNEL_ID
+
 app.get('/', (req, res) => {
 	res.send('Hello World!')
 })
@@ -55,9 +56,8 @@ app.listen(PORT, () => {
 })
 
 const keepAlive = async () => {
-	//await pokemon()
 	// ping the bot to keep it alive
-	const response = await fetch('https://ongaku-bot.onrender.com')
+	const response = await fetch('https://untenshu-bot.onrender.com')
 }
  
 let lastTime = -Infinity
@@ -74,8 +74,12 @@ client.on(Events.ClientReady, async readyClient => {
 }) 
 
 client.on(Events.InteractionCreate, async interaction => {
+	console.log(`Received interaction ${interaction.id} from ${interaction.user.tag}`)
 	if (!interaction.isChatInputCommand()) return
 	const command = interaction.client.commands.get(interaction.commandName)
+
+	// delete this
+	if (interaction.channelId !== devChannel) return
 
 	if (!command) {
 		console.error(`No command matching ${interaction.commandName} was found.`)
