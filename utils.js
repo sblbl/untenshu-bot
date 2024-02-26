@@ -3,79 +3,8 @@ const axios = require('axios')
 const { GoogleSpreadsheet } = require('google-spreadsheet')
 const { JWT } = require('google-auth-library')
 const qs = require('qs')
-
-const spotifyLogin = async () => {
-	const clientId = process.env.SPOTIFTY_CLIENT
-	const clientSecret = process.env.SPOTIFY_TOKEN
-	const accessToken = Buffer.from(`${clientId}:${clientSecret}`, 'utf-8').toString('base64')
-
-	try {
-		const tokenUrl = 'https://accounts.spotify.com/api/token'
-		const data = qs.stringify({'grant_type':'client_credentials'})
-
-		const response = await axios.post(tokenUrl, data, {
-			headers: { 
-				'Authorization': `Basic ${accessToken}`,
-				'Content-Type': 'application/x-www-form-urlencoded' 
-			}
-		})
-		console.log(response.data.access_token)
-		return response.data.access_token
-	} catch(error) {
-		console.log(error)
-	}
-}
-
-exports.searchTrack = async (track, artist) => {
-	const accessToken = await spotifyLogin()
-	// paolo conte - angiolino
-	const config = {
-		method: 'get',
-		url: `https://api.spotify.com/v1/search`,
-		params: {
-			q: `${artist} - ${track}`,
-			type: 'track',
-			limit: 1
-		},
-		headers: {
-			'Authorization': `Bearer ${accessToken}`
-		},
-		timeout: 20000
-	}
-	const response = await axios.request(config)
-	
-	const result = response.data.tracks.items[0]
-	console.log('track item', result)
-	
-	const data = {}
-
-	data.track = result.name
-	data.preview = result.preview_url
-	data.id = result.id
-	data.album = result.album.name
-	data.cover = result.album.images[0].url
-	data.artist = result.artists[0].name
-	data.link = result.external_urls.spotify
-	
-	const artistId = result.artists[0].id
-
-	const configArtist = {
-		method: 'get',
-		url: `https://api.spotify.com/v1/artists/${artistId}`,
-		headers: {
-			'Authorization': `Bearer ${accessToken}`
-		},
-		timeout: 20000
-	}
-	const responseArtist = await axios.request(configArtist)
-	console.log('artist', responseArtist.data)
-	
-	const resultArtist = responseArtist.data
-	data.genre = resultArtist.genres
-
-	await writeTrack(data)
-	return data
-}
+const { bulkData } = require('./bulk-data')
+const voice = '21m00Tcm4TlvDq8ikWAM'
 
 const spreadheetLogin = async (sheet = 0) => {
 	const serviceAccountAuth = new JWT({
@@ -85,6 +14,7 @@ const spreadheetLogin = async (sheet = 0) => {
 		key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
 		scopes: [
 			'https://www.googleapis.com/auth/spreadsheets',
+			'https://www.googleapis.com/auth/drive.file'
 		],
 	})
 	const doc = new GoogleSpreadsheet(process.env.GOOGLE_SPREADSHEET_ID, serviceAccountAuth)
@@ -94,45 +24,69 @@ const spreadheetLogin = async (sheet = 0) => {
 	return spreadsheet
 }
 
-const writeTrack = async data => {
-	console.log(data)
-	const sheet = await spreadheetLogin()
-
-	await sheet.addRow({ 
-		id : data.id,
-		track: data.track,
-		artist: data.artist,
-		album: data.album,
-		genre: data.genre.toString(),
-		cover: data.cover,
-		link: data.link,
-		preview: data.preview
-	})
-}
-
-exports.writeRawTrack = async data => {
+exports.bulkAdd = async () => {
 	const sheet = await spreadheetLogin()
 	
-	await sheet.addRow({ 
-		id : data.id,
-		track: data.track,
-		artist: data.artist,
-		album: data.album,
-		genre: data.genre,
-		cover: data.cover,
-		link: data.link,
-		preview: data.preview
-	})
-}
+	for (let i = 0; i < bulkData.length; i++) {
+		console.log('adding', i, '\t', bulkData[i])
+		const data = bulkData[i]
 
-exports.pokemon = async () => {
-	const config = {
-		method: 'get',
-		maxBodyLength: Infinity,
-		url: 'https://pokeapi.co/api/v2/pokemon/ditto',
-		headers: { }
+		// check if data.jp + data.it already exists
+		const rows = await sheet.getRows()
+		console.log(rows)
+		const exists = rows.find(row => row.jp === data.jp && row.it === data.it)
+
+		if (exists) continue
+
+		await sheet.addRow({ 
+			id : Math.random().toString(36).substring(7),
+			jp: data.jp,
+			it : data.it,
+			romaji: data.romaji,
+			notes: data.notes
+		})
+
+		// wait 3 seconds to avoid rate limit
+		await new Promise(resolve => setTimeout(resolve, 3000))
 	}
 
-	const response = await axios.request(config)	
-	console.log('pokemon', JSON.stringify(response.data.forms[0].name))
+}
+
+exports.it2jp = async (word, showRomaji) => {
+	const sheet = await spreadheetLogin()
+	
+	const rows = await sheet.getRows()
+	
+	const found = rows.find(row => row.get('it').toLowerCase() === word.toLowerCase())
+	if (!found) return 'Word not found'
+
+	const romaji = showRomaji ? ` (${found.get('romaji')})` : null
+	return {
+		jp: found.get('jp'),
+		romaji: romaji
+	}
+}
+
+exports.jp2it = async (word, isRomaji) => {
+	const sheet = await spreadheetLogin()
+	
+	const rows = await sheet.getRows()
+
+	if (isRomaji) {
+		const found = rows.find(row => row.get('romaji').toLowerCase() === word.toLowerCase())
+		if (!found) return 'Word not found'
+		console.log(found)
+		return {
+			it : found.get('it'),
+			jp : found.get('jp')
+		}
+	} else {
+		const found = rows.find(row => row.get('jp') === word)
+		if (!found) return 'Word not found'
+		console.log(found)
+		return {
+			it : found.get('it'),
+			jp : found.get('jp')
+		}
+	}
 }

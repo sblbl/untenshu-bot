@@ -46,6 +46,7 @@ for (const folder of commandFolders) {
 client.login(process.env.DISCORD_TOKEN)
 
 const devChannel = process.env.DEV_CHANNEL_ID
+//const devChannel = 1210508966405349376
 
 app.get('/', (req, res) => {
 	res.send('Hello World!')
@@ -73,13 +74,22 @@ client.on(Events.ClientReady, async readyClient => {
 	}, checkInterval)
 }) 
 
+// check for text messages
+
+client.on(Events.MessageCreate, async message => {
+	if (message.author.bot) return
+	/* if (message.content === 'ping') {
+		message.reply('pong')
+	} */
+})
+
 client.on(Events.InteractionCreate, async interaction => {
 	console.log(`Received interaction ${interaction.id} from ${interaction.user.tag}`)
 	if (!interaction.isChatInputCommand()) return
 	const command = interaction.client.commands.get(interaction.commandName)
 
 	// delete this
-	if (interaction.channelId !== devChannel) return
+	//if (interaction.channelId !== devChannel) return
 
 	if (!command) {
 		console.error(`No command matching ${interaction.commandName} was found.`)
