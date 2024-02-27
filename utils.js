@@ -90,3 +90,26 @@ exports.jp2it = async (word, isRomaji) => {
 		}
 	}
 }
+
+exports.get3words = async () => {
+	const sheet = await spreadheetLogin()
+	
+	const rows = await sheet.getRows()
+	const words = []
+
+	// pick 3 random words without repeating
+	const indexes = []
+	while (indexes.length < 3) {
+		const index = Math.floor(Math.random() * rows.length)
+		if (!indexes.includes(index)) indexes.push(index)
+	}
+
+	for (const index of indexes) {
+		const word = rows[index]
+		words.push({
+			jp: word.get('jp'),
+			it: word.get('it'),
+		})
+	}
+	return words
+}
